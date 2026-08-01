@@ -231,7 +231,7 @@ class VideoDownloaderApp(ctk.CTk):
     def open_add_tracking_popup(self):
         popup = ctk.CTkToplevel(self)
         popup.title("Ajouter une chaîne au suivi")
-        popup.geometry("500x400")
+        popup.geometry("520x450")
         popup.resizable(False, False)
         # Centrer sur l'application principale
         popup.transient(self)
@@ -251,7 +251,7 @@ class VideoDownloaderApp(ctk.CTk):
         ctk.CTkLabel(container, text="Nouvelle Chaîne", font=ctk.CTkFont(family="Segoe UI Variable Display", size=24, weight="bold")).pack(pady=(0, 20))
         
         url_var = tk.StringVar()
-        ctk.CTkEntry(container, textvariable=url_var, placeholder_text="Lien de la chaîne", width=400, height=40).pack(pady=(0, 15))
+        ctk.CTkEntry(container, textvariable=url_var, placeholder_text="Lien de la chaîne", width=420, height=40).pack(pady=(0, 15))
         
         # Options frame
         opt_frame = ctk.CTkFrame(container, fg_color="transparent")
@@ -259,15 +259,34 @@ class VideoDownloaderApp(ctk.CTk):
         
         ctk.CTkLabel(opt_frame, text="Qualité :").grid(row=0, column=0, sticky="w", pady=5)
         qual_var = ctk.StringVar(value="Meilleure")
-        ctk.CTkOptionMenu(opt_frame, values=["Meilleure", "1080p", "720p", "480p", "Audio seulement"], variable=qual_var).grid(row=0, column=1, padx=10, pady=5)
+        ctk.CTkOptionMenu(opt_frame, values=["Meilleure", "1080p", "720p", "480p", "Audio seulement"], variable=qual_var).grid(row=0, column=1, padx=10, pady=5, sticky="w")
         
         ctk.CTkLabel(opt_frame, text="Depuis le :").grid(row=1, column=0, sticky="w", pady=5)
         date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
-        ctk.CTkEntry(opt_frame, textvariable=date_var, width=120).grid(row=1, column=1, padx=10, pady=5)
+        ctk.CTkEntry(opt_frame, textvariable=date_var, width=120).grid(row=1, column=1, padx=10, pady=5, sticky="w")
         
         ctk.CTkLabel(opt_frame, text="Intervalle (H) :").grid(row=2, column=0, sticky="w", pady=5)
         interval_var = tk.StringVar(value="6")
         ctk.CTkEntry(opt_frame, textvariable=interval_var, width=60).grid(row=2, column=1, padx=10, pady=5, sticky="w")
+
+        ctk.CTkLabel(opt_frame, text="Dossier :").grid(row=3, column=0, sticky="w", pady=5)
+        folder_frame = ctk.CTkFrame(opt_frame, fg_color="transparent")
+        folder_frame.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        
+        selected_folder = tk.StringVar(value=self.download_path)
+        
+        def choose_custom_folder():
+            f = filedialog.askdirectory(initialdir=selected_folder.get())
+            if f:
+                selected_folder.set(f)
+                disp = f if len(f) <= 25 else "..." + f[-22:]
+                lbl_path.configure(text=disp)
+                
+        disp = selected_folder.get()
+        disp = disp if len(disp) <= 25 else "..." + disp[-22:]
+        lbl_path = ctk.CTkLabel(folder_frame, text=disp, width=160, anchor="w", text_color="gray")
+        lbl_path.pack(side="left")
+        ctk.CTkButton(folder_frame, text="Parcourir...", width=80, command=choose_custom_folder).pack(side="left", padx=5)
         
         def save_action():
             url = url_var.get().strip()
@@ -277,6 +296,7 @@ class VideoDownloaderApp(ctk.CTk):
                 "quality": qual_var.get(),
                 "date_after": date_var.get(),
                 "interval": float(interval_var.get()),
+                "custom_path": selected_folder.get(),
                 "last_checked": 0,
                 "stats_downloaded": 0,
                 "stats_total": "?",
@@ -394,7 +414,8 @@ class VideoDownloaderApp(ctk.CTk):
                 try:
                     self.auto_stats_hook(data['url'], {'status': '🔍 Initialisation...'})
                     qual = data.get('quality', 'Meilleure')
-                    download_channel(data['url'], self.download_path, qual, data['date_after'], stats_hook=self.auto_stats_hook)
+                    out_path = data.get('custom_path', self.download_path)
+                    download_channel(data['url'], out_path, qual, data['date_after'], stats_hook=self.auto_stats_hook)
                     data['last_checked'] = time.time()
                     self.auto_stats_hook(data['url'], {'status': '😴 En attente'})
                 except Exception as e:
