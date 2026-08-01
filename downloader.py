@@ -36,6 +36,12 @@ def download_video(url, output_path, quality_str, browser="Aucun", progress_hook
         'logger': YtLogger(auth_callback=auth_callback)
     }
 
+    try:
+        import imageio_ffmpeg
+        ydl_opts['ffmpeg_location'] = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
+
     if browser == "Connexion YouTube":
         ydl_opts['username'] = 'oauth2'
         ydl_opts['password'] = ''
