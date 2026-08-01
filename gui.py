@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
-from downloader import download_video, download_channel
+from downloader import download_video, download_channel, cancel_download
 import threading
 import json
 import os
@@ -96,15 +96,6 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.tab_download_btn.grid(row=1, column=0, padx=10, pady=10, sticky="w")
         
-        self.tab_auto_btn = ctk.CTkButton(
-            self.sidebar_frame, text=" Suivi Auto", image=self.icon_auto,
-            compound="left", anchor="w", fg_color="transparent",
-            text_color=("black", "white"), hover_color=("gray70", "gray30"),
-            height=45, width=180, font=self.main_font,
-            command=self.show_auto_tab
-        )
-        self.tab_auto_btn.grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        
         self.tab_manager_btn = ctk.CTkButton(
             self.sidebar_frame, text=" Gestionnaire", image=self.icon_manager,
             compound="left", anchor="w", fg_color="transparent",
@@ -112,7 +103,16 @@ class VideoDownloaderApp(ctk.CTk):
             height=45, width=180, font=self.main_font,
             command=self.show_manager_tab
         )
-        self.tab_manager_btn.grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.tab_manager_btn.grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        
+        self.tab_auto_btn = ctk.CTkButton(
+            self.sidebar_frame, text=" Suivi Auto", image=self.icon_auto,
+            compound="left", anchor="w", fg_color="transparent",
+            text_color=("black", "white"), hover_color=("gray70", "gray30"),
+            height=45, width=180, font=self.main_font,
+            command=self.show_auto_tab
+        )
+        self.tab_auto_btn.grid(row=3, column=0, padx=10, pady=5, sticky="w")
 
         self.main_view = ctk.CTkFrame(self, fg_color="transparent")
         self.main_view.grid(row=0, column=1, sticky="nsew")
@@ -201,10 +201,15 @@ class VideoDownloaderApp(ctk.CTk):
         dl = d.get('downloaded_bytes', 0)
         tot = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
         percent = (dl / tot) if tot else 0
+        speed = d.get('_speed_str', '').strip()
         
-        self.after(0, lambda u=url, t=title, up=uploader, th=thumb_url, st=status, p=percent: self._update_manager_ui(u, t, up, th, st, p))
+        self.after(0, lambda u=url, t=title, up=uploader, th=thumb_url, st=status, p=percent, sp=speed: self._update_manager_ui(u, t, up, th, st, p, sp))
 
-    def _update_manager_ui(self, url, title, uploader, thumb_url, status, percent):
+    def cancel_manager_download(self, url):
+        cancel_download(url)
+        self.after(0, lambda u=url: self._update_manager_ui(u, "Annulé", "", None, "error", 0, ""))
+
+    def _update_manager_ui(self, url, title, uploader, thumb_url, status, percent, speed):
         if url not in self.manager_items:
             f = ctk.CTkFrame(self.manager_scroll, corner_radius=6, fg_color=("#ffffff", "#2b2b2b"), border_width=1, border_color=("#e5e5e5", "#333333"))
             f.pack(fill="x", pady=4, padx=2)
@@ -231,10 +236,19 @@ class VideoDownloaderApp(ctk.CTk):
             prog_bar.set(0)
             prog_bar.pack(anchor="w", pady=(2,0))
             
+            lbl_speed = ctk.CTkLabel(prog_frame, text="", text_color="gray", font=ctk.CTkFont(size=11), anchor="w")
+            lbl_speed.pack(anchor="w")
+            
+            btn_cancel = ctk.CTkButton(f, text="X", width=30, height=30, fg_color="#D13438", hover_color="#A80000",
+                                       command=lambda u=url: self.cancel_manager_download(u))
+            btn_cancel.grid(row=0, column=5, padx=10)
+            
             self.manager_items[url] = {
                 'lbl_thumb': lbl_thumb,
                 'lbl_status': lbl_status,
-                'prog_bar': prog_bar
+                'prog_bar': prog_bar,
+                'lbl_speed': lbl_speed,
+                'btn_cancel': btn_cancel
             }
             
             if thumb_url:
@@ -244,9 +258,16 @@ class VideoDownloaderApp(ctk.CTk):
         if status == "downloading":
             ui['lbl_status'].configure(text=f"Téléchargement... {percent*100:.1f}%", text_color=("black", "white"))
             ui['prog_bar'].set(percent)
+            ui['lbl_speed'].configure(text=speed)
         elif status == "finished":
             ui['lbl_status'].configure(text="Terminé 🎉", text_color="#107C10")
             ui['prog_bar'].set(1.0)
+            ui['lbl_speed'].configure(text="")
+            ui['btn_cancel'].configure(state="disabled")
+        elif status == "error" or (status and "annulé" in status.lower()):
+            ui['lbl_status'].configure(text="Annulé / Erreur ❌", text_color="#D13438")
+            ui['lbl_speed'].configure(text="")
+            ui['btn_cancel'].configure(state="disabled")
             
     def _download_thumb(self, url, thumb_url):
         try:
@@ -629,6 +650,7 @@ class VideoDownloaderApp(ctk.CTk):
         except Exception as e:
             self.status_label.configure(text=f"Erreur : {str(e)[:50]}...", text_color="#D13438")
             self.download_button.configure(state="normal")
+            self.global_download_hook({'status': 'error', 'info_dict': {'webpage_url': url}})
 
 if __name__ == "__main__":
     app = VideoDownloaderApp()

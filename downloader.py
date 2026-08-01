@@ -2,6 +2,11 @@ import yt_dlp
 import os
 import re
 
+CANCELED_URLS = set()
+
+def cancel_download(url):
+    CANCELED_URLS.add(url)
+
 class YTDLLogger:
     def __init__(self, stats_hook, url):
         self.stats_hook = stats_hook
@@ -47,6 +52,8 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
         pass
     
     def internal_hook(d):
+        if url in CANCELED_URLS:
+            raise Exception("Téléchargement annulé par l'utilisateur.")
         if global_hook:
             global_hook(d)
         if progress_hook:
@@ -81,6 +88,8 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
                 from pytubefix import YouTube
                 
                 def pytube_progress(stream, chunk, bytes_remaining):
+                    if url in CANCELED_URLS:
+                        raise Exception("Téléchargement annulé par l'utilisateur.")
                     total = stream.filesize
                     downloaded = total - bytes_remaining
                     d = {
@@ -137,12 +146,18 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
             raise e
 
 def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None, global_hook=None):
+    def abort_filter(info_dict):
+        if url in CANCELED_URLS:
+            raise Exception("Téléchargement annulé par l'utilisateur.")
+        return None
+
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(uploader)s', '%(title)s.%(ext)s'),
         'noplaylist': False,
         'extractor_args': {'youtube': ['player_client=ios,android,web']},
         'download_archive': os.path.join(output_path, 'archive.txt'),
         'ignoreerrors': True,
+        'match_filter': abort_filter
     }
     
     logger = YTDLLogger(stats_hook, url)
@@ -159,6 +174,8 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
         pass
         
     def internal_hook(d):
+        if url in CANCELED_URLS:
+            raise Exception("Téléchargement annulé par l'utilisateur.")
         if d['status'] == 'finished':
             logger.downloaded_count += 1
             logger.update("Téléchargement...")
