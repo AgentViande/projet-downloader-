@@ -5,6 +5,7 @@ import threading
 import json
 import os
 from tkinter import filedialog
+from PIL import Image
 try:
     import pywinstyles
 except ImportError:
@@ -67,10 +68,20 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.menu_button.pack(side="left")
         
+        # Chargement des images couleur (Icons8)
+        try:
+            self.icon_download = ctk.CTkImage(Image.open("icon_download.png"), size=(24, 24))
+            self.icon_logo = ctk.CTkImage(Image.open("icon_logo.png"), size=(28, 28))
+        except Exception:
+            self.icon_download = None
+            self.icon_logo = None
+
         # Logo Label
         self.logo_label = ctk.CTkLabel(
             self.top_sidebar_frame, 
-            text="Video Pro", 
+            text=" Video Pro", 
+            image=self.icon_logo,
+            compound="left",
             font=ctk.CTkFont(family="Segoe UI Variable Display", size=18, weight="bold")
         )
         self.logo_label.pack(side="left", padx=(10, 10))
@@ -78,7 +89,9 @@ class VideoDownloaderApp(ctk.CTk):
         # Bouton Onglet 1 (Télécharger)
         self.tab_download_btn = ctk.CTkButton(
             self.sidebar_frame, 
-            text="\uE896   Télécharger", 
+            text=" Télécharger", 
+            image=self.icon_download,
+            compound="left",
             anchor="w", 
             fg_color=("gray80", "gray20"),
             text_color=("black", "white"),
@@ -103,17 +116,16 @@ class VideoDownloaderApp(ctk.CTk):
             # Action: Rétracter
             self.logo_label.pack_forget()
             self.tab_download_btn.configure(
-                text="\uE896", 
+                text="", 
                 width=40, 
-                anchor="center",
-                font=ctk.CTkFont(family="Segoe Fluent Icons", size=16)
+                anchor="center"
             )
             self.sidebar_expanded = False
         else:
             # Action: Déployer
             self.logo_label.pack(side="left", padx=(10, 10))
             self.tab_download_btn.configure(
-                text="\uE896   Télécharger", 
+                text=" Télécharger", 
                 width=180, 
                 anchor="w",
                 font=ctk.CTkFont(family="Segoe UI Variable Text", size=14)
