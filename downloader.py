@@ -10,6 +10,8 @@ def download_video(url, output_path, quality_str, browser="Aucun", progress_hook
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
+        # Ruse : Se faire passer pour un client mobile ou TV pour éviter la détection de bot
+        'extractor_args': {'youtube': ['player_client=ios,android,web']},
     }
 
     if browser and browser != "Aucun":
