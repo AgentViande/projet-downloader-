@@ -56,7 +56,7 @@ class VideoDownloaderApp(ctk.CTk):
         self.browser_label.pack(side="left", padx=(0, 10))
         
         self.browser_var = ctk.StringVar(value="Aucun")
-        self.browser_menu = ctk.CTkOptionMenu(self.adv_options_frame, values=["Aucun", "Chrome", "Edge", "Firefox", "Brave", "Opera", "Safari", "Vivaldi"], variable=self.browser_var)
+        self.browser_menu = ctk.CTkOptionMenu(self.adv_options_frame, values=["Aucun", "Connexion YouTube", "Chrome", "Edge", "Firefox", "Brave", "Opera", "Safari"], variable=self.browser_var, width=150)
         self.browser_menu.pack(side="left")
 
         # Affichage du dossier actuel
@@ -133,10 +133,31 @@ class VideoDownloaderApp(ctk.CTk):
         
     def run_download_thread(self, url, quality, browser):
         try:
-            download_video(url, self.download_path, quality, browser, self.progress_hook)
+            download_video(url, self.download_path, quality, browser, self.progress_hook, self.auth_callback)
         except Exception as e:
             self.status_label.configure(text=f"Erreur : {str(e)[:50]}...", text_color="red")
             self.download_button.configure(state="normal")
+            
+    def auth_callback(self, msg):
+        import re
+        match = re.search(r'code ([A-Z0-9-]+)', msg)
+        if match:
+            code = match.group(1)
+            self.after(0, self.show_auth_popup, code)
+            
+    def show_auth_popup(self, code):
+        import tkinter.messagebox
+        import webbrowser
+        self.clipboard_clear()
+        self.clipboard_append(code)
+        self.status_label.configure(text="En attente de votre connexion sur le navigateur...", text_color="blue")
+        tkinter.messagebox.showinfo(
+            "Connexion YouTube requise",
+            f"YouTube bloque temporairement les téléchargements.\n\n"
+            f"Pas de panique ! Le code d'accès '{code}' vient d'être copié dans votre presse-papier.\n\n"
+            f"Une page web officielle de Google va s'ouvrir. Collez-y simplement le code et autorisez l'application.\nLe téléchargement reprendra tout seul !"
+        )
+        webbrowser.open("https://www.google.com/device")
 
 if __name__ == "__main__":
     app = VideoDownloaderApp()

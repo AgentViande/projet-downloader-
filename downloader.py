@@ -1,7 +1,28 @@
 import yt_dlp
 import os
 
-def download_video(url, output_path, quality_str, browser="Aucun", progress_hook=None):
+class YtLogger:
+    def __init__(self, auth_callback=None):
+        self.auth_callback = auth_callback
+
+    def debug(self, msg):
+        self.check_auth(msg)
+
+    def warning(self, msg):
+        self.check_auth(msg)
+
+    def error(self, msg):
+        pass
+        
+    def info(self, msg):
+        self.check_auth(msg)
+        
+    def check_auth(self, msg):
+        if "google.com/device" in msg and "code" in msg:
+            if self.auth_callback:
+                self.auth_callback(msg)
+
+def download_video(url, output_path, quality_str, browser="Aucun", progress_hook=None, auth_callback=None):
     """
     Télécharge une vidéo depuis l'URL donnée avec yt_dlp.
     """
@@ -12,9 +33,13 @@ def download_video(url, output_path, quality_str, browser="Aucun", progress_hook
         'noplaylist': True,
         # Ruse : Se faire passer pour un client mobile ou TV pour éviter la détection de bot
         'extractor_args': {'youtube': ['player_client=ios,android,web']},
+        'logger': YtLogger(auth_callback=auth_callback)
     }
 
-    if browser and browser != "Aucun":
+    if browser == "Connexion YouTube":
+        ydl_opts['username'] = 'oauth2'
+        ydl_opts['password'] = ''
+    elif browser and browser != "Aucun":
         ydl_opts['cookiesfrombrowser'] = (browser.lower(),)
     
     # Si on a fourni une fonction pour la barre de progression, on l'ajoute
