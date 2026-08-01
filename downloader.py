@@ -39,6 +39,8 @@ def download_video(url, output_path, quality_str, browser="Aucun", progress_hook
     if browser == "Connexion YouTube":
         ydl_opts['username'] = 'oauth2'
         ydl_opts['password'] = ''
+    elif browser == "Fichier cookies.txt":
+        ydl_opts['cookiefile'] = os.path.join(os.path.dirname(__file__), 'cookies.txt')
     elif browser and browser != "Aucun":
         ydl_opts['cookiesfrombrowser'] = (browser.lower(),)
     

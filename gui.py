@@ -56,7 +56,7 @@ class VideoDownloaderApp(ctk.CTk):
         self.browser_label.pack(side="left", padx=(0, 10))
         
         self.browser_var = ctk.StringVar(value="Aucun")
-        self.browser_menu = ctk.CTkOptionMenu(self.adv_options_frame, values=["Aucun", "Connexion YouTube", "Chrome", "Edge", "Firefox", "Brave", "Opera", "Safari"], variable=self.browser_var, width=150)
+        self.browser_menu = ctk.CTkOptionMenu(self.adv_options_frame, values=["Aucun", "Connexion YouTube", "Fichier cookies.txt", "Chrome", "Edge", "Firefox", "Brave", "Opera", "Safari"], variable=self.browser_var, width=150)
         self.browser_menu.pack(side="left")
 
         # Affichage du dossier actuel
