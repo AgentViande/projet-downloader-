@@ -360,8 +360,16 @@ class VideoDownloaderApp(ctk.CTk):
             lbl_stats.grid(row=0, column=4, padx=5)
             
             status = data.get('status', 'En attente')
-            lbl_status = ctk.CTkLabel(f, text=status, text_color="gray", width=160, anchor="w")
-            lbl_status.grid(row=0, column=5, padx=5)
+            status_frame = ctk.CTkFrame(f, fg_color="transparent")
+            status_frame.grid(row=0, column=5, padx=5, sticky="we")
+            
+            lbl_status = ctk.CTkLabel(status_frame, text=status, text_color="gray", width=160, anchor="w")
+            lbl_status.pack(anchor="w")
+            
+            prog_bar = ctk.CTkProgressBar(status_frame, width=150, height=5)
+            prog_bar.set(0)
+            if "Téléchargement..." in status:
+                prog_bar.pack(anchor="w", pady=(2, 0))
             
             ctk.CTkButton(f, text="X", width=30, height=30, fg_color="#D13438", hover_color="#A80000", 
                           command=lambda idx=i: self.remove_tracking(idx)).grid(row=0, column=6, padx=10)
@@ -369,6 +377,7 @@ class VideoDownloaderApp(ctk.CTk):
             self.tracking_ui_elements[data['url']] = {
                 'lbl_stats': lbl_stats,
                 'lbl_status': lbl_status,
+                'prog_bar': prog_bar,
                 'data_ref': data
             }
 
@@ -381,19 +390,28 @@ class VideoDownloaderApp(ctk.CTk):
             status = info.get('status', data.get('status'))
             tot = info.get('total', data.get('stats_total'))
             dl = info.get('downloaded', data.get('stats_downloaded'))
+            percent = info.get('percent', None)
             
             data['status'] = status
             if tot != 0: data['stats_total'] = tot
             data['stats_downloaded'] = dl
             
-            self.after(0, lambda u=url, t=tot, d=dl, s=status: self._update_ui_row(u, t, d, s))
+            self.after(0, lambda u=url, t=tot, d=dl, s=status, p=percent: self._update_ui_row(u, t, d, s, p))
 
-    def _update_ui_row(self, url, tot, dl, status):
+    def _update_ui_row(self, url, tot, dl, status, percent):
         if url in self.tracking_ui_elements:
             ui = self.tracking_ui_elements[url]
             if tot != 0:
                 ui['lbl_stats'].configure(text=f"{dl} / {tot}")
             ui['lbl_status'].configure(text=status)
+            
+            prog = ui['prog_bar']
+            if "Téléchargement..." in status and percent is not None:
+                prog.pack(anchor="w", pady=(2, 0))
+                prog.set(percent)
+            elif "En attente" in status or "Initialisation" in status or "Vérification" in status:
+                prog.pack_forget()
+                
             if "En attente" in status:
                 self.save_tracking()
 

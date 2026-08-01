@@ -129,9 +129,24 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
     def internal_hook(d):
         if d['status'] == 'finished':
             logger.downloaded_count += 1
-            logger.update("Téléchargement en cours...")
+            logger.update("Téléchargement...")
         elif d['status'] == 'downloading':
-            logger.update(f"Téléchargement... {d.get('_percent_str', '').strip()}")
+            percent_float = 0
+            try:
+                total = d.get('total_bytes') or d.get('total_bytes_estimate')
+                dl = d.get('downloaded_bytes', 0)
+                if total:
+                    percent_float = dl / total
+            except:
+                pass
+                
+            if stats_hook:
+                stats_hook(url, {
+                    'status': f"Téléchargement... {d.get('_percent_str', '').strip()}",
+                    'total': logger.total,
+                    'downloaded': logger.downloaded_count,
+                    'percent': percent_float
+                })
             
         if progress_hook:
             progress_hook(d)
