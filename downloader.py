@@ -65,9 +65,48 @@ def download_video(url, output_path, quality_str, browser="Aucun", progress_hook
     else: # "Meilleure" par défaut
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
-    # Lancement du téléchargement
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    try:
+        # Lancement du téléchargement avec yt-dlp
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+            
+    except Exception as e:
+        error_msg = str(e).lower()
+        # Si yt-dlp échoue sur YouTube à cause d'un blocage de bot ou d'IP (429), on bascule sur Pytubefix
+        if "youtube" in url.lower() and ("429" in error_msg or "bot" in error_msg or "sign in" in error_msg or "decrypt" in error_msg):
+            print("Passage au plan B : Pytubefix...")
+            try:
+                from pytubefix import YouTube
+                
+                def pytube_progress(stream, chunk, bytes_remaining):
+                    if progress_hook:
+                        total = stream.filesize
+                        downloaded = total - bytes_remaining
+                        progress_hook({
+                            'status': 'downloading',
+                            'downloaded_bytes': downloaded,
+                            'total_bytes': total
+                        })
+                        
+                yt = YouTube(url, on_progress_callback=pytube_progress)
+                
+                if progress_hook:
+                    # Initialisation visuelle pour montrer que ça démarre
+                    progress_hook({'status': 'downloading', 'downloaded_bytes': 0, 'total_bytes': 100})
+                
+                if quality_str == "Audio seulement":
+                    stream = yt.streams.get_audio_only()
+                else:
+                    stream = yt.streams.get_highest_resolution()
+                    
+                stream.download(output_path=output_path)
+                
+                if progress_hook:
+                    progress_hook({'status': 'finished'})
+            except Exception as e2:
+                raise Exception(f"Echec des deux moteurs de téléchargement. ({str(e2)})")
+        else:
+            raise e
 
 if __name__ == "__main__":
     # Test simple (sans GUI)
