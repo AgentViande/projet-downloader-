@@ -47,6 +47,18 @@ class VideoDownloaderApp(ctk.CTk):
         self.folder_button = ctk.CTkButton(self.options_frame, text="Dossier de destination", command=self.choose_folder, width=150)
         self.folder_button.pack(side="right")
         
+        # Frame pour les options avancées
+        self.adv_options_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.adv_options_frame.pack(pady=5, fill="x", padx=70)
+
+        # Navigateur (Cookies)
+        self.browser_label = ctk.CTkLabel(self.adv_options_frame, text="Navigateur (Anti-Bot) :")
+        self.browser_label.pack(side="left", padx=(0, 10))
+        
+        self.browser_var = ctk.StringVar(value="Aucun")
+        self.browser_menu = ctk.CTkOptionMenu(self.adv_options_frame, values=["Aucun", "Chrome", "Edge", "Firefox", "Brave", "Opera", "Safari", "Vivaldi"], variable=self.browser_var)
+        self.browser_menu.pack(side="left")
+
         # Affichage du dossier actuel
         self.path_label = ctk.CTkLabel(self, text=f"Dossier : {self.download_path}", text_color="gray", font=ctk.CTkFont(size=11))
         self.path_label.pack(pady=(0, 10))
@@ -113,14 +125,15 @@ class VideoDownloaderApp(ctk.CTk):
         self.progress_bar.set(0)
         
         quality = self.quality_var.get()
+        browser = self.browser_var.get()
         
         # Lancer le téléchargement dans un thread séparé pour ne pas bloquer l'interface
-        thread = threading.Thread(target=self.run_download_thread, args=(url, quality))
+        thread = threading.Thread(target=self.run_download_thread, args=(url, quality, browser))
         thread.start()
         
-    def run_download_thread(self, url, quality):
+    def run_download_thread(self, url, quality, browser):
         try:
-            download_video(url, self.download_path, quality, self.progress_hook)
+            download_video(url, self.download_path, quality, browser, self.progress_hook)
         except Exception as e:
             self.status_label.configure(text=f"Erreur : {str(e)[:50]}...", text_color="red")
             self.download_button.configure(state="normal")

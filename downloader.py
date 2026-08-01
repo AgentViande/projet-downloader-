@@ -1,7 +1,7 @@
 import yt_dlp
 import os
 
-def download_video(url, output_path, quality_str, progress_hook=None):
+def download_video(url, output_path, quality_str, browser="Aucun", progress_hook=None):
     """
     Télécharge une vidéo depuis l'URL donnée avec yt_dlp.
     """
@@ -11,6 +11,9 @@ def download_video(url, output_path, quality_str, progress_hook=None):
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
     }
+
+    if browser and browser != "Aucun":
+        ydl_opts['cookiesfrombrowser'] = (browser.lower(),)
     
     # Si on a fourni une fonction pour la barre de progression, on l'ajoute
     if progress_hook:
