@@ -33,7 +33,7 @@ class YTDLLogger:
     def error(self, msg):
         pass
 
-def download_video(url, output_path, quality_str, progress_hook=None):
+def download_video(url, output_path, quality_str, progress_hook=None, global_hook=None):
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
@@ -46,8 +46,13 @@ def download_video(url, output_path, quality_str, progress_hook=None):
     except ImportError:
         pass
     
-    if progress_hook:
-        ydl_opts['progress_hooks'] = [progress_hook]
+    def internal_hook(d):
+        if global_hook:
+            global_hook(d)
+        if progress_hook:
+            progress_hook(d)
+            
+    ydl_opts['progress_hooks'] = [internal_hook]
 
     if quality_str == "Audio seulement":
         ydl_opts['format'] = 'bestaudio/best'
@@ -76,19 +81,37 @@ def download_video(url, output_path, quality_str, progress_hook=None):
                 from pytubefix import YouTube
                 
                 def pytube_progress(stream, chunk, bytes_remaining):
-                    if progress_hook:
-                        total = stream.filesize
-                        downloaded = total - bytes_remaining
-                        progress_hook({
-                            'status': 'downloading',
-                            'downloaded_bytes': downloaded,
-                            'total_bytes': total
-                        })
+                    total = stream.filesize
+                    downloaded = total - bytes_remaining
+                    d = {
+                        'status': 'downloading',
+                        'downloaded_bytes': downloaded,
+                        'total_bytes': total,
+                        'info_dict': {
+                            'title': yt.title,
+                            'uploader': yt.author,
+                            'thumbnail': yt.thumbnail_url,
+                            'webpage_url': url
+                        }
+                    }
+                    if global_hook: global_hook(d)
+                    if progress_hook: progress_hook(d)
                         
                 yt = YouTube(url, on_progress_callback=pytube_progress)
                 
-                if progress_hook:
-                    progress_hook({'status': 'downloading', 'downloaded_bytes': 0, 'total_bytes': 100})
+                init_d = {
+                    'status': 'downloading', 
+                    'downloaded_bytes': 0, 
+                    'total_bytes': 100,
+                    'info_dict': {
+                        'title': yt.title,
+                        'uploader': yt.author,
+                        'thumbnail': yt.thumbnail_url,
+                        'webpage_url': url
+                    }
+                }
+                if global_hook: global_hook(init_d)
+                if progress_hook: progress_hook(init_d)
                 
                 if quality_str == "Audio seulement":
                     stream = yt.streams.get_audio_only()
@@ -97,14 +120,23 @@ def download_video(url, output_path, quality_str, progress_hook=None):
                     
                 stream.download(output_path=output_path)
                 
-                if progress_hook:
-                    progress_hook({'status': 'finished'})
+                fin_d = {
+                    'status': 'finished',
+                    'info_dict': {
+                        'title': yt.title,
+                        'uploader': yt.author,
+                        'thumbnail': yt.thumbnail_url,
+                        'webpage_url': url
+                    }
+                }
+                if global_hook: global_hook(fin_d)
+                if progress_hook: progress_hook(fin_d)
             except Exception as e2:
                 raise Exception(f"Les deux moteurs de téléchargement ont échoué. Détail: {str(e2)}")
         else:
             raise e
 
-def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None):
+def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None, global_hook=None):
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(uploader)s', '%(title)s.%(ext)s'),
         'noplaylist': False,
@@ -147,6 +179,9 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
                     'downloaded': logger.downloaded_count,
                     'percent': percent_float
                 })
+                
+        if global_hook:
+            global_hook(d)
             
         if progress_hook:
             progress_hook(d)
