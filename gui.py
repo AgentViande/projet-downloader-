@@ -44,22 +44,22 @@ class VideoDownloaderApp(ctk.CTk):
         # === SIDEBAR ===
         self.sidebar_expanded = True
         
-        # Frame de la sidebar (légèrement tintée pour se différencier)
-        self.sidebar_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray90", "gray10"))
+        # Frame de la sidebar
+        self.sidebar_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray90", "gray10"), width=200)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(2, weight=1) # Pousse tout vers le haut
+        self.sidebar_frame.grid_rowconfigure(2, weight=1)
         
         # Top Container (Hamburger + Logo)
         self.top_sidebar_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         self.top_sidebar_frame.grid(row=0, column=0, padx=10, pady=(20, 10), sticky="w")
         
-        # Hamburger Button
+        # Hamburger Button (Icône native Segoe Fluent)
         self.menu_button = ctk.CTkButton(
             self.top_sidebar_frame, 
-            text="☰", 
+            text="\uE700", 
             width=40, 
             height=40, 
-            font=ctk.CTkFont(size=20), 
+            font=ctk.CTkFont(family="Segoe Fluent Icons", size=18), 
             fg_color="transparent", 
             text_color=("black", "white"), 
             hover_color=("gray80", "gray20"), 
@@ -67,7 +67,7 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.menu_button.pack(side="left")
         
-        # Logo Label (Caché quand rétracté)
+        # Logo Label
         self.logo_label = ctk.CTkLabel(
             self.top_sidebar_frame, 
             text="Video Pro", 
@@ -78,15 +78,16 @@ class VideoDownloaderApp(ctk.CTk):
         # Bouton Onglet 1 (Télécharger)
         self.tab_download_btn = ctk.CTkButton(
             self.sidebar_frame, 
-            text="📥  Télécharger", 
+            text="\uE896   Télécharger", 
             anchor="w", 
-            fg_color=("gray80", "gray20"), # Surbrillance pour indiquer l'onglet actif
+            fg_color=("gray80", "gray20"),
             text_color=("black", "white"),
             hover_color=("gray70", "gray30"),
             height=45, 
-            font=self.main_font
+            width=180,
+            font=ctk.CTkFont(family="Segoe UI Variable Text", size=14)
         )
-        self.tab_download_btn.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        self.tab_download_btn.grid(row=1, column=0, padx=10, pady=10, sticky="w")
         
         # (Futurs onglets ici: row=2, row=3, etc.)
         
@@ -100,13 +101,23 @@ class VideoDownloaderApp(ctk.CTk):
     def toggle_sidebar(self):
         if self.sidebar_expanded:
             # Action: Rétracter
-            self.logo_label.pack_forget() # Cache le texte du logo
-            self.tab_download_btn.configure(text="📥", anchor="center")
+            self.logo_label.pack_forget()
+            self.tab_download_btn.configure(
+                text="\uE896", 
+                width=40, 
+                anchor="center",
+                font=ctk.CTkFont(family="Segoe Fluent Icons", size=16)
+            )
             self.sidebar_expanded = False
         else:
             # Action: Déployer
-            self.logo_label.pack(side="left", padx=(10, 10)) # Réaffiche le texte du logo
-            self.tab_download_btn.configure(text="📥  Télécharger", anchor="w")
+            self.logo_label.pack(side="left", padx=(10, 10))
+            self.tab_download_btn.configure(
+                text="\uE896   Télécharger", 
+                width=180, 
+                anchor="w",
+                font=ctk.CTkFont(family="Segoe UI Variable Text", size=14)
+            )
             self.sidebar_expanded = True
             
     def setup_download_tab(self):
