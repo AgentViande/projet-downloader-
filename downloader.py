@@ -2,10 +2,31 @@ import yt_dlp
 import os
 import re
 
+class DownloadCancelled(BaseException): pass
+class DownloadPaused(BaseException): pass
+
 CANCELED_URLS = set()
+PAUSED_URLS = set()
 
 def cancel_download(url):
     CANCELED_URLS.add(url)
+    if url in PAUSED_URLS:
+        PAUSED_URLS.remove(url)
+
+def pause_download(url):
+    PAUSED_URLS.add(url)
+
+def resume_download(url):
+    if url in PAUSED_URLS:
+        PAUSED_URLS.remove(url)
+    if url in CANCELED_URLS:
+        CANCELED_URLS.remove(url)
+
+def _check_abort(url):
+    if url in CANCELED_URLS:
+        raise DownloadCancelled("Téléchargement annulé par l'utilisateur.")
+    if url in PAUSED_URLS:
+        raise DownloadPaused("Téléchargement mis en pause.")
 
 class YTDLLogger:
     def __init__(self, stats_hook, url):
@@ -32,11 +53,8 @@ class YTDLLogger:
                 'downloaded': self.downloaded_count
             })
             
-    def warning(self, msg):
-        pass
-        
-    def error(self, msg):
-        pass
+    def warning(self, msg): pass
+    def error(self, msg): pass
 
 def download_video(url, output_path, quality_str, progress_hook=None, global_hook=None):
     ydl_opts = {
@@ -52,8 +70,12 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
         pass
     
     def internal_hook(d):
-        if url in CANCELED_URLS:
-            raise Exception("Téléchargement annulé par l'utilisateur.")
+        _check_abort(url)
+            
+        if 'info_dict' not in d: d['info_dict'] = {}
+        d['info_dict']['_custom_quality'] = quality_str
+        d['info_dict']['_custom_path'] = output_path
+        
         if global_hook:
             global_hook(d)
         if progress_hook:
@@ -80,16 +102,19 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
+    except DownloadCancelled:
+        raise
+    except DownloadPaused:
+        raise
     except Exception as e:
         error_msg = str(e).lower()
         if "youtube" in url.lower() and ("429" in error_msg or "bot" in error_msg or "sign in" in error_msg or "decrypt" in error_msg):
-            print("Blocage YouTube détecté. Bascule silencieuse vers Pytubefix...")
+            print("Blocage YouTube détecté. Bascule vers Pytubefix...")
             try:
                 from pytubefix import YouTube
                 
                 def pytube_progress(stream, chunk, bytes_remaining):
-                    if url in CANCELED_URLS:
-                        raise Exception("Téléchargement annulé par l'utilisateur.")
+                    _check_abort(url)
                     total = stream.filesize
                     downloaded = total - bytes_remaining
                     d = {
@@ -100,7 +125,9 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
                             'title': yt.title,
                             'uploader': yt.author,
                             'thumbnail': yt.thumbnail_url,
-                            'webpage_url': url
+                            'webpage_url': url,
+                            '_custom_quality': quality_str,
+                            '_custom_path': output_path
                         }
                     }
                     if global_hook: global_hook(d)
@@ -116,7 +143,9 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
                         'title': yt.title,
                         'uploader': yt.author,
                         'thumbnail': yt.thumbnail_url,
-                        'webpage_url': url
+                        'webpage_url': url,
+                        '_custom_quality': quality_str,
+                        '_custom_path': output_path
                     }
                 }
                 if global_hook: global_hook(init_d)
@@ -135,20 +164,28 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
                         'title': yt.title,
                         'uploader': yt.author,
                         'thumbnail': yt.thumbnail_url,
-                        'webpage_url': url
+                        'webpage_url': url,
+                        '_custom_quality': quality_str,
+                        '_custom_path': output_path
                     }
                 }
                 if global_hook: global_hook(fin_d)
                 if progress_hook: progress_hook(fin_d)
+            except DownloadCancelled:
+                raise
+            except DownloadPaused:
+                raise
             except Exception as e2:
-                raise Exception(f"Les deux moteurs de téléchargement ont échoué. Détail: {str(e2)}")
+                raise Exception(f"Les deux moteurs ont échoué. Détail: {str(e2)}")
         else:
             raise e
 
 def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None, global_hook=None):
     def abort_filter(info_dict):
-        if url in CANCELED_URLS:
-            raise Exception("Téléchargement annulé par l'utilisateur.")
+        # We must check the specific VIDEO URL extracted from the playlist, but also the CHANNEL URL if the user canceled the channel.
+        _check_abort(url) # channel url
+        video_url = info_dict.get('webpage_url', '')
+        if video_url: _check_abort(video_url)
         return None
 
     ydl_opts = {
@@ -174,8 +211,14 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
         pass
         
     def internal_hook(d):
-        if url in CANCELED_URLS:
-            raise Exception("Téléchargement annulé par l'utilisateur.")
+        video_url = d.get('info_dict', {}).get('webpage_url', '')
+        _check_abort(url)
+        if video_url: _check_abort(video_url)
+            
+        if 'info_dict' not in d: d['info_dict'] = {}
+        d['info_dict']['_custom_quality'] = quality_str
+        d['info_dict']['_custom_path'] = output_path
+            
         if d['status'] == 'finished':
             logger.downloaded_count += 1
             logger.update("Téléchargement...")
@@ -221,10 +264,14 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
     else: 
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except DownloadCancelled:
+        pass
+    except DownloadPaused:
+        pass
         
-    # Fin
     logger.update("En attente")
 
 if __name__ == "__main__":

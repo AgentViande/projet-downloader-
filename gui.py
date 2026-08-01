@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
-from downloader import download_video, download_channel, cancel_download
+from downloader import download_video, download_channel, cancel_download, pause_download, resume_download
 import threading
 import json
 import os
@@ -32,7 +32,7 @@ class VideoDownloaderApp(ctk.CTk):
         super().__init__()
 
         self.title("Video Downloader Pro")
-        self.geometry("1100x750")
+        self.geometry("1150x750")
         self.minsize(900, 500)
         
         self.protocol('WM_DELETE_WINDOW', self.hide_window)
@@ -183,6 +183,7 @@ class VideoDownloaderApp(ctk.CTk):
         ctk.CTkLabel(header_frame, text="Chaîne", font=ctk.CTkFont(weight="bold"), width=150, anchor="w").grid(row=0, column=2, padx=10, sticky="w")
         ctk.CTkLabel(header_frame, text="Lien", font=ctk.CTkFont(weight="bold"), anchor="w").grid(row=0, column=3, padx=10, sticky="w")
         ctk.CTkLabel(header_frame, text="Progression", font=ctk.CTkFont(weight="bold"), width=200).grid(row=0, column=4, padx=15)
+        ctk.CTkLabel(header_frame, text="", width=80).grid(row=0, column=5, columnspan=2, padx=5) # Pause + Cancel
 
         self.manager_scroll = ctk.CTkScrollableFrame(self.manager_container, fg_color="transparent")
         self.manager_scroll.pack(fill="both", expand=True)
@@ -203,13 +204,38 @@ class VideoDownloaderApp(ctk.CTk):
         percent = (dl / tot) if tot else 0
         speed = d.get('_speed_str', '').strip()
         
-        self.after(0, lambda u=url, t=title, up=uploader, th=thumb_url, st=status, p=percent, sp=speed: self._update_manager_ui(u, t, up, th, st, p, sp))
+        self.after(0, lambda u=url, t=title, up=uploader, th=thumb_url, st=status, p=percent, sp=speed, i=info: self._update_manager_ui(u, t, up, th, st, p, sp, i))
 
     def cancel_manager_download(self, url):
         cancel_download(url)
-        self.after(0, lambda u=url: self._update_manager_ui(u, "Annulé", "", None, "error", 0, ""))
+        self.after(0, lambda u=url: self._update_manager_ui(u, "Annulé", "", None, "error", 0, "", None))
 
-    def _update_manager_ui(self, url, title, uploader, thumb_url, status, percent, speed):
+    def toggle_manager_pause(self, url):
+        if url in self.manager_items:
+            ui = self.manager_items[url]
+            if not ui['is_paused']:
+                pause_download(url)
+                ui['is_paused'] = True
+                ui['btn_pause'].configure(text="▶", fg_color="#107C10", hover_color="#0B5C0B")
+                ui['lbl_status'].configure(text="En pause ⏸", text_color="#F2A900")
+                ui['lbl_speed'].configure(text="")
+            else:
+                resume_download(url)
+                ui['is_paused'] = False
+                ui['btn_pause'].configure(text="⏸", fg_color="#F2A900", hover_color="#C58A00")
+                ui['lbl_status'].configure(text="Reprise...", text_color="#005A9E")
+                
+                qual = ui.get('quality', 'Meilleure')
+                out_path = ui.get('path', self.download_path)
+                threading.Thread(target=self._resume_download_thread, args=(url, qual, out_path)).start()
+                
+    def _resume_download_thread(self, url, quality, out_path):
+        try:
+            download_video(url, out_path, quality, None, self.global_download_hook)
+        except Exception as e:
+            self.global_download_hook({'status': 'error', 'info_dict': {'webpage_url': url}})
+
+    def _update_manager_ui(self, url, title, uploader, thumb_url, status, percent, speed, info_dict):
         if url not in self.manager_items:
             f = ctk.CTkFrame(self.manager_scroll, corner_radius=6, fg_color=("#ffffff", "#2b2b2b"), border_width=1, border_color=("#e5e5e5", "#333333"))
             f.pack(fill="x", pady=4, padx=2)
@@ -239,16 +265,31 @@ class VideoDownloaderApp(ctk.CTk):
             lbl_speed = ctk.CTkLabel(prog_frame, text="", text_color="gray", font=ctk.CTkFont(size=11), anchor="w")
             lbl_speed.pack(anchor="w")
             
+            btn_pause = ctk.CTkButton(f, text="⏸", width=30, height=30, fg_color="#F2A900", hover_color="#C58A00",
+                                      command=lambda u=url: self.toggle_manager_pause(u))
+            btn_pause.grid(row=0, column=5, padx=5)
+            
             btn_cancel = ctk.CTkButton(f, text="X", width=30, height=30, fg_color="#D13438", hover_color="#A80000",
                                        command=lambda u=url: self.cancel_manager_download(u))
-            btn_cancel.grid(row=0, column=5, padx=10)
+            btn_cancel.grid(row=0, column=6, padx=10)
+            
+            # Extract config to enable resume
+            q = 'Meilleure'
+            p = self.download_path
+            if info_dict:
+                q = info_dict.get('_custom_quality', 'Meilleure')
+                p = info_dict.get('_custom_path', self.download_path)
             
             self.manager_items[url] = {
                 'lbl_thumb': lbl_thumb,
                 'lbl_status': lbl_status,
                 'prog_bar': prog_bar,
                 'lbl_speed': lbl_speed,
-                'btn_cancel': btn_cancel
+                'btn_pause': btn_pause,
+                'btn_cancel': btn_cancel,
+                'is_paused': False,
+                'quality': q,
+                'path': p
             }
             
             if thumb_url:
@@ -256,6 +297,7 @@ class VideoDownloaderApp(ctk.CTk):
                 
         ui = self.manager_items[url]
         if status == "downloading":
+            if ui['is_paused']: return
             ui['lbl_status'].configure(text=f"Téléchargement... {percent*100:.1f}%", text_color=("black", "white"))
             ui['prog_bar'].set(percent)
             ui['lbl_speed'].configure(text=speed)
@@ -263,10 +305,12 @@ class VideoDownloaderApp(ctk.CTk):
             ui['lbl_status'].configure(text="Terminé 🎉", text_color="#107C10")
             ui['prog_bar'].set(1.0)
             ui['lbl_speed'].configure(text="")
+            ui['btn_pause'].configure(state="disabled")
             ui['btn_cancel'].configure(state="disabled")
         elif status == "error" or (status and "annulé" in status.lower()):
             ui['lbl_status'].configure(text="Annulé / Erreur ❌", text_color="#D13438")
             ui['lbl_speed'].configure(text="")
+            ui['btn_pause'].configure(state="disabled")
             ui['btn_cancel'].configure(state="disabled")
             
     def _download_thumb(self, url, thumb_url):
@@ -275,7 +319,6 @@ class VideoDownloaderApp(ctk.CTk):
             with urllib.request.urlopen(req) as response:
                 img_data = response.read()
             img = Image.open(BytesIO(img_data))
-            # Crop/Resize 16:9
             img = img.resize((120, 67), Image.Resampling.LANCZOS)
             ctk_img = ctk.CTkImage(img, size=(120, 67))
             self.after(0, lambda u=url, i=ctk_img: self._set_thumb(u, i))
