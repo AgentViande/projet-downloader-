@@ -10,6 +10,7 @@ from tkinter import filedialog
 from PIL import Image
 import urllib.request
 from io import BytesIO
+from tkcalendar import DateEntry
 
 try:
     import pywinstyles
@@ -441,17 +442,20 @@ class VideoDownloaderApp(ctk.CTk):
         qual_var = ctk.StringVar(value="Meilleure")
         ctk.CTkOptionMenu(opt_frame, values=["Meilleure", "1080p", "720p", "480p", "Audio seulement"], variable=qual_var).grid(row=0, column=1, padx=10, pady=5, sticky="w")
         
-        ctk.CTkLabel(opt_frame, text="Depuis le :").grid(row=1, column=0, sticky="w", pady=5)
-        date_var = tk.StringVar(value="")
-        ctk.CTkEntry(opt_frame, textvariable=date_var, placeholder_text="ex: "+datetime.now().strftime("%Y-%m-%d"), width=120).grid(row=1, column=1, padx=10, pady=5, sticky="w")
+        retro_var = tk.BooleanVar(value=True)
+        ctk.CTkSwitch(opt_frame, text="Télécharger les anciennes vidéos (Rétroactif)", variable=retro_var, command=lambda: date_entry.configure(state="disabled" if retro_var.get() else "normal")).grid(row=1, column=0, columnspan=2, pady=(10,5), sticky="w")
         
-        ctk.CTkLabel(opt_frame, text="Intervalle (H) :").grid(row=2, column=0, sticky="w", pady=5)
+        ctk.CTkLabel(opt_frame, text="Ou depuis le :").grid(row=2, column=0, sticky="w", pady=5)
+        date_entry = DateEntry(opt_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd', state="disabled")
+        date_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        
+        ctk.CTkLabel(opt_frame, text="Intervalle (H) :").grid(row=3, column=0, sticky="w", pady=5)
         interval_var = tk.StringVar(value="6")
-        ctk.CTkEntry(opt_frame, textvariable=interval_var, width=60).grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkEntry(opt_frame, textvariable=interval_var, width=60).grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
-        ctk.CTkLabel(opt_frame, text="Dossier :").grid(row=3, column=0, sticky="w", pady=5)
+        ctk.CTkLabel(opt_frame, text="Dossier :").grid(row=4, column=0, sticky="w", pady=5)
         folder_frame = ctk.CTkFrame(opt_frame, fg_color="transparent")
-        folder_frame.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        folder_frame.grid(row=4, column=1, padx=10, pady=5, sticky="w")
         
         selected_folder = tk.StringVar(value=self.download_path)
         
@@ -474,7 +478,7 @@ class VideoDownloaderApp(ctk.CTk):
             self.tracking_data.append({
                 "url": url,
                 "quality": qual_var.get(),
-                "date_after": date_var.get(),
+                "date_after": "" if retro_var.get() else date_entry.get(),
                 "interval": float(interval_var.get()),
                 "custom_path": selected_folder.get(),
                 "last_checked": 0,
