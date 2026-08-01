@@ -442,8 +442,8 @@ class VideoDownloaderApp(ctk.CTk):
         ctk.CTkOptionMenu(opt_frame, values=["Meilleure", "1080p", "720p", "480p", "Audio seulement"], variable=qual_var).grid(row=0, column=1, padx=10, pady=5, sticky="w")
         
         ctk.CTkLabel(opt_frame, text="Depuis le :").grid(row=1, column=0, sticky="w", pady=5)
-        date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
-        ctk.CTkEntry(opt_frame, textvariable=date_var, width=120).grid(row=1, column=1, padx=10, pady=5, sticky="w")
+        date_var = tk.StringVar(value="")
+        ctk.CTkEntry(opt_frame, textvariable=date_var, placeholder_text="ex: "+datetime.now().strftime("%Y-%m-%d"), width=120).grid(row=1, column=1, padx=10, pady=5, sticky="w")
         
         ctk.CTkLabel(opt_frame, text="Intervalle (H) :").grid(row=2, column=0, sticky="w", pady=5)
         interval_var = tk.StringVar(value="6")

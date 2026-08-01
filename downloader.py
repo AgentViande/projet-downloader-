@@ -41,7 +41,7 @@ class YTDLLogger:
             if match:
                 self.total = int(match.group(1))
                 self.update("Vérification...")
-        elif "has already been recorded in the archive" in msg:
+        elif "has already been recorded in the archive" in msg or "has already been downloaded" in msg:
             self.downloaded_count += 1
             self.update("Vérification...")
             
@@ -57,6 +57,11 @@ class YTDLLogger:
     def error(self, msg): pass
 
 def download_video(url, output_path, quality_str, progress_hook=None, global_hook=None):
+    if url in CANCELED_URLS:
+        CANCELED_URLS.remove(url)
+    if url in PAUSED_URLS:
+        PAUSED_URLS.remove(url)
+        
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
@@ -181,6 +186,11 @@ def download_video(url, output_path, quality_str, progress_hook=None, global_hoo
             raise e
 
 def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None, global_hook=None):
+    if url in CANCELED_URLS:
+        CANCELED_URLS.remove(url)
+    if url in PAUSED_URLS:
+        PAUSED_URLS.remove(url)
+        
     def abort_filter(info_dict):
         # We must check the specific VIDEO URL extracted from the playlist, but also the CHANNEL URL if the user canceled the channel.
         _check_abort(url) # channel url
