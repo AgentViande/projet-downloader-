@@ -7,26 +7,21 @@ def download_video(url, output_path, quality_str, progress_hook=None):
     Utilise yt-dlp par défaut (TikTok, etc.), avec repli sur pytubefix pour YouTube si bloqué.
     """
     
-    # Configuration des options pour yt-dlp
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
-        # Ruse : Se faire passer pour un client mobile ou TV pour éviter la détection de bot
         'extractor_args': {'youtube': ['player_client=ios,android,web']},
     }
     
-    # Intégration automatique de FFmpeg pour la fusion Haute Définition
     try:
         import imageio_ffmpeg
         ydl_opts['ffmpeg_location'] = imageio_ffmpeg.get_ffmpeg_exe()
     except ImportError:
         pass
     
-    # Si on a fourni une fonction pour la barre de progression, on l'ajoute
     if progress_hook:
         ydl_opts['progress_hooks'] = [progress_hook]
 
-    # Paramétrage de la qualité
     if quality_str == "Audio seulement":
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'] = [{
@@ -40,22 +35,18 @@ def download_video(url, output_path, quality_str, progress_hook=None):
         ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
     elif quality_str == "480p":
         ydl_opts['format'] = 'bestvideo[height<=480]+bestaudio/best[height<=480]/best'
-    else: # "Meilleure" par défaut
+    else: 
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
     try:
-        # Lancement du téléchargement avec yt-dlp
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
-            
     except Exception as e:
         error_msg = str(e).lower()
-        # Si yt-dlp échoue sur YouTube à cause d'un blocage de bot ou d'IP (429), on bascule sur Pytubefix
         if "youtube" in url.lower() and ("429" in error_msg or "bot" in error_msg or "sign in" in error_msg or "decrypt" in error_msg):
             print("Blocage YouTube détecté. Bascule silencieuse vers Pytubefix...")
             try:
                 from pytubefix import YouTube
-                from pytubefix.cli import on_progress
                 
                 def pytube_progress(stream, chunk, bytes_remaining):
                     if progress_hook:
@@ -70,7 +61,6 @@ def download_video(url, output_path, quality_str, progress_hook=None):
                 yt = YouTube(url, on_progress_callback=pytube_progress)
                 
                 if progress_hook:
-                    # Initialisation visuelle pour montrer que ça démarre
                     progress_hook({'status': 'downloading', 'downloaded_bytes': 0, 'total_bytes': 100})
                 
                 if quality_str == "Audio seulement":
@@ -86,6 +76,53 @@ def download_video(url, output_path, quality_str, progress_hook=None):
                 raise Exception(f"Les deux moteurs de téléchargement ont échoué. Détail: {str(e2)}")
         else:
             raise e
+
+def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None):
+    """
+    Télécharge une chaîne entière, avec historique (archive.txt) pour ignorer les vidéos déjà téléchargées.
+    """
+    
+    # On crée un sous-dossier par chaîne automatiquement
+    ydl_opts = {
+        'outtmpl': os.path.join(output_path, '%(uploader)s', '%(title)s.%(ext)s'),
+        'noplaylist': False, # Autoriser le téléchargement de chaîne
+        'extractor_args': {'youtube': ['player_client=ios,android,web']},
+        'download_archive': os.path.join(output_path, 'archive.txt'), # Fichier de mémorisation !
+        'ignoreerrors': True, # Ignorer si une vidéo crashe et passer à la suivante
+    }
+    
+    if date_after:
+        # yt-dlp attend le format YYYYMMDD
+        clean_date = date_after.replace("-", "").replace("/", "")
+        ydl_opts['daterange'] = yt_dlp.utils.DateRange(start=clean_date)
+        
+    try:
+        import imageio_ffmpeg
+        ydl_opts['ffmpeg_location'] = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
+        
+    if progress_hook:
+        ydl_opts['progress_hooks'] = [progress_hook]
+
+    if quality_str == "Audio seulement":
+        ydl_opts['format'] = 'bestaudio/best'
+        ydl_opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
+    elif quality_str == "1080p":
+        ydl_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+    elif quality_str == "720p":
+        ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+    elif quality_str == "480p":
+        ydl_opts['format'] = 'bestvideo[height<=480]+bestaudio/best[height<=480]/best'
+    else: 
+        ydl_opts['format'] = 'bestvideo+bestaudio/best'
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
 
 if __name__ == "__main__":
     pass
