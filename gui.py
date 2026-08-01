@@ -19,7 +19,6 @@ try:
 except ImportError:
     pystray = None
 
-# Configuration du thème
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
@@ -31,10 +30,9 @@ class VideoDownloaderApp(ctk.CTk):
         super().__init__()
 
         self.title("Video Downloader Pro")
-        self.geometry("900x650")
-        self.minsize(750, 500)
+        self.geometry("950x700")
+        self.minsize(800, 500)
         
-        # Minimiser dans la barre des tâches (System Tray) au lieu de fermer
         self.protocol('WM_DELETE_WINDOW', self.hide_window)
         self.tray_icon = None
         
@@ -50,11 +48,9 @@ class VideoDownloaderApp(ctk.CTk):
 
         self.main_font = ctk.CTkFont(family="Segoe UI Variable Text", size=14)
         
-        # === LAYOUT PRINCIPAL (2 Colonnes) ===
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         
-        # === SIDEBAR ===
         self.sidebar_expanded = True
         self.sidebar_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray90", "gray10"), width=200)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
@@ -75,10 +71,12 @@ class VideoDownloaderApp(ctk.CTk):
             self.icon_download = ctk.CTkImage(Image.open("icon_download.png"), size=(24, 24))
             self.icon_logo = ctk.CTkImage(Image.open("icon_logo.png"), size=(28, 28))
             self.icon_auto = ctk.CTkImage(Image.open("icon_auto.png"), size=(24, 24))
+            self.icon_yt = ctk.CTkImage(Image.open("icon_youtube.png"), size=(24, 24))
+            self.icon_tk = ctk.CTkImage(Image.open("icon_tiktok.png"), size=(24, 24))
+            self.icon_web = ctk.CTkImage(Image.open("icon_web.png"), size=(24, 24))
         except Exception:
-            self.icon_download = None
-            self.icon_logo = None
-            self.icon_auto = None
+            self.icon_download, self.icon_logo, self.icon_auto = None, None, None
+            self.icon_yt, self.icon_tk, self.icon_web = None, None, None
 
         self.logo_label = ctk.CTkLabel(
             self.top_sidebar_frame, text=" Video Pro", image=self.icon_logo,
@@ -86,7 +84,6 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.logo_label.pack(side="left", padx=(10, 10))
         
-        # Onglet 1: Télécharger
         self.tab_download_btn = ctk.CTkButton(
             self.sidebar_frame, text=" Télécharger", image=self.icon_download,
             compound="left", anchor="w", fg_color=("gray80", "gray20"),
@@ -96,7 +93,6 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.tab_download_btn.grid(row=1, column=0, padx=10, pady=10, sticky="w")
         
-        # Onglet 2: Suivi Auto
         self.tab_auto_btn = ctk.CTkButton(
             self.sidebar_frame, text=" Suivi Auto", image=self.icon_auto,
             compound="left", anchor="w", fg_color="transparent",
@@ -106,23 +102,20 @@ class VideoDownloaderApp(ctk.CTk):
         )
         self.tab_auto_btn.grid(row=2, column=0, padx=10, pady=5, sticky="w")
         
-        # === MAIN VIEW ===
         self.main_view = ctk.CTkFrame(self, fg_color="transparent")
         self.main_view.grid(row=0, column=1, sticky="nsew")
         
-        # Vues
+        # Initialisation UI tracking update references
+        self.tracking_ui_elements = {}
+        
         self.setup_download_tab()
         self.setup_auto_tab()
-        
-        # Afficher le premier onglet par défaut
         self.show_download_tab()
         
-        # Lancer le worker de fond
         self.is_running = True
         self.bg_thread = threading.Thread(target=self.background_worker, daemon=True)
         self.bg_thread.start()
 
-    # --- GESTION DES ONGLETS ---
     def show_download_tab(self):
         self.auto_container.place_forget()
         self.download_container.place(relx=0.5, rely=0.5, anchor="center")
@@ -135,7 +128,6 @@ class VideoDownloaderApp(ctk.CTk):
         self.tab_auto_btn.configure(fg_color=("gray80", "gray20"))
         self.tab_download_btn.configure(fg_color="transparent")
 
-    # --- SIDEBAR TOGGLE ---
     def toggle_sidebar(self):
         if self.sidebar_expanded:
             self.logo_label.pack_forget()
@@ -148,20 +140,16 @@ class VideoDownloaderApp(ctk.CTk):
             self.tab_auto_btn.configure(text=" Suivi Auto", width=180, anchor="w")
             self.sidebar_expanded = True
 
-    # --- SETUP ONGLET TÉLÉCHARGEMENT ---
     def setup_download_tab(self):
         self.download_container = ctk.CTkFrame(self.main_view, fg_color="transparent")
-        
         title_font = ctk.CTkFont(family="Segoe UI Variable Display", size=34, weight="bold")
         button_font = ctk.CTkFont(family="Segoe UI Variable Text", size=16, weight="bold")
 
         ctk.CTkLabel(self.download_container, text="Télécharger une vidéo", font=title_font).pack(pady=(0, 40))
 
         self.url_var = tk.StringVar()
-        ctk.CTkEntry(
-            self.download_container, width=550, height=50, corner_radius=10, font=self.main_font,
-            placeholder_text="Collez un lien YouTube, TikTok, Instagram...", textvariable=self.url_var
-        ).pack(pady=(0, 30))
+        ctk.CTkEntry(self.download_container, width=550, height=50, corner_radius=10, font=self.main_font,
+                     placeholder_text="Collez un lien YouTube, TikTok, Instagram...", textvariable=self.url_var).pack(pady=(0, 30))
 
         options_card = ctk.CTkFrame(self.download_container, corner_radius=12, fg_color=("#f3f3f3", "#2b2b2b"), border_width=1, border_color=("#e5e5e5", "#333333"))
         options_card.pack(fill="x", pady=(0, 30), ipadx=15, ipady=15)
@@ -182,10 +170,8 @@ class VideoDownloaderApp(ctk.CTk):
         self.path_label = ctk.CTkLabel(f_frame, text=f"Dossier : {display_path}", font=ctk.CTkFont(family="Segoe UI Variable Text", size=13), text_color="gray")
         self.path_label.pack(side="left", padx=10)
         
-        ctk.CTkButton(
-            f_frame, text="Modifier...", command=self.choose_folder, font=self.main_font, corner_radius=6,
-            width=100, fg_color="transparent", border_width=1, text_color=("black", "white"), hover_color=("#e5e5e5", "#444444")
-        ).pack(side="right", padx=10)
+        ctk.CTkButton(f_frame, text="Modifier...", command=self.choose_folder, font=self.main_font, corner_radius=6,
+                      width=100, fg_color="transparent", border_width=1, text_color=("black", "white"), hover_color=("#e5e5e5", "#444444")).pack(side="right", padx=10)
 
         self.download_button = ctk.CTkButton(self.download_container, text="Télécharger", command=self.start_download, font=button_font, height=50, width=280, corner_radius=25)
         self.download_button.pack(pady=(10, 15))
@@ -198,61 +184,55 @@ class VideoDownloaderApp(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.download_container, text="", font=self.main_font, text_color="gray")
         self.status_label.pack()
 
-    # --- SETUP ONGLET SUIVI AUTO ---
     def setup_auto_tab(self):
         self.auto_container = ctk.CTkFrame(self.main_view, fg_color="transparent")
         title_font = ctk.CTkFont(family="Segoe UI Variable Display", size=34, weight="bold")
         
         ctk.CTkLabel(self.auto_container, text="Suivi Automatique", font=title_font).pack(pady=(0, 20))
-        ctk.CTkLabel(self.auto_container, text="Le logiciel surveillera ces chaînes et téléchargera les nouvelles vidéos en arrière-plan.", text_color="gray", font=self.main_font).pack(pady=(0, 20))
-
+        
         # Carte d'ajout
         add_card = ctk.CTkFrame(self.auto_container, corner_radius=12, fg_color=("#f3f3f3", "#2b2b2b"), border_width=1, border_color=("#e5e5e5", "#333333"))
         add_card.pack(fill="x", pady=(0, 20), ipadx=15, ipady=15)
         
-        # Ligne 1 : URL
         url_frame = ctk.CTkFrame(add_card, fg_color="transparent")
         url_frame.pack(fill="x", pady=5)
         self.auto_url_var = tk.StringVar()
         ctk.CTkEntry(url_frame, textvariable=self.auto_url_var, placeholder_text="Lien de la chaîne (YouTube, TikTok...)", width=400).pack(side="left", padx=10)
         
-        # Ligne 2 : Paramètres
         params_frame = ctk.CTkFrame(add_card, fg_color="transparent")
         params_frame.pack(fill="x", pady=10)
-        
         ctk.CTkLabel(params_frame, text="Depuis le :").pack(side="left", padx=(10, 5))
         self.auto_date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
         ctk.CTkEntry(params_frame, textvariable=self.auto_date_var, width=100).pack(side="left", padx=5)
-        
-        ctk.CTkLabel(params_frame, text="Vérifier toutes les (heures) :").pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(params_frame, text="Intervalle (H) :").pack(side="left", padx=(20, 5))
         self.auto_interval_var = tk.StringVar(value="6")
         ctk.CTkEntry(params_frame, textvariable=self.auto_interval_var, width=50).pack(side="left", padx=5)
-        
         ctk.CTkButton(params_frame, text="Ajouter", command=self.add_tracking, width=100, corner_radius=6).pack(side="right", padx=10)
 
-        # Liste des chaînes
-        self.channels_frame = ctk.CTkScrollableFrame(self.auto_container, width=550, height=180, fg_color="transparent")
+        # Tableau Dashboard
+        self.channels_frame = ctk.CTkScrollableFrame(self.auto_container, width=700, height=250, fg_color="transparent")
         self.channels_frame.pack(pady=10)
         
-        # Bouton manuel et statut
         bottom_frame = ctk.CTkFrame(self.auto_container, fg_color="transparent")
         bottom_frame.pack(fill="x", pady=10)
-        
-        self.auto_status_label = ctk.CTkLabel(bottom_frame, text="", text_color="gray", font=self.main_font)
-        self.auto_status_label.pack(side="left", padx=10)
-        
-        ctk.CTkButton(bottom_frame, text="Vérifier maintenant", command=self.force_check, corner_radius=20).pack(side="right", padx=10)
+        ctk.CTkButton(bottom_frame, text="Lancer la vérification", command=self.force_check, corner_radius=20).pack(side="right", padx=10)
         
         self.refresh_tracking_list()
 
-    # --- LOGIQUE TRACKING ---
+    def get_site_icon(self, url):
+        u = url.lower()
+        if "youtube" in u or "youtu.be" in u:
+            return self.icon_yt
+        elif "tiktok" in u:
+            return self.icon_tk
+        return self.icon_web
+
     def load_tracking(self):
         if os.path.exists(TRACKING_FILE):
             try:
                 with open(TRACKING_FILE, 'r') as f:
                     return json.load(f)
-            except:
-                pass
+            except: pass
         return []
 
     def save_tracking(self):
@@ -266,7 +246,10 @@ class VideoDownloaderApp(ctk.CTk):
             "url": url,
             "date_after": self.auto_date_var.get(),
             "interval": float(self.auto_interval_var.get()),
-            "last_checked": 0
+            "last_checked": 0,
+            "stats_downloaded": 0,
+            "stats_total": "?",
+            "status": "En attente"
         })
         self.save_tracking()
         self.auto_url_var.set("")
@@ -281,28 +264,84 @@ class VideoDownloaderApp(ctk.CTk):
     def refresh_tracking_list(self):
         for widget in self.channels_frame.winfo_children():
             widget.destroy()
+        self.tracking_ui_elements.clear()
             
         for i, data in enumerate(self.tracking_data):
             f = ctk.CTkFrame(self.channels_frame, corner_radius=8, fg_color=("#e0e0e0", "#303030"))
-            f.pack(fill="x", pady=5, padx=5, ipadx=10, ipady=10)
+            f.pack(fill="x", pady=5, padx=5, ipadx=5, ipady=5)
             
+            # Grid Layout pour la ligne
+            f.grid_columnconfigure(1, weight=1)
+            
+            # Col 0: Logo
+            icon = self.get_site_icon(data['url'])
+            ctk.CTkLabel(f, text="", image=icon).grid(row=0, column=0, padx=10, pady=5)
+            
+            # Col 1: URL
             url_short = data['url']
-            if len(url_short) > 40: url_short = url_short[:40] + "..."
+            if len(url_short) > 35: url_short = url_short[:35] + "..."
+            ctk.CTkLabel(f, text=url_short, font=ctk.CTkFont(weight="bold")).grid(row=0, column=1, sticky="w", padx=10)
             
-            ctk.CTkLabel(f, text=url_short, font=ctk.CTkFont(weight="bold")).pack(side="left")
-            ctk.CTkLabel(f, text=f" (Toutes les {data['interval']}h)", text_color="gray").pack(side="left")
+            # Col 2: Params
+            ctk.CTkLabel(f, text=f"{data['interval']}h | {data.get('date_after', 'All')}", text_color="gray").grid(row=0, column=2, padx=15)
             
-            ctk.CTkButton(f, text="X", width=30, fg_color="#D13438", hover_color="#A80000", command=lambda idx=i: self.remove_tracking(idx)).pack(side="right")
+            # Col 3: Stats (Téléchargé / Total)
+            dl = data.get('stats_downloaded', 0)
+            tot = data.get('stats_total', '?')
+            lbl_stats = ctk.CTkLabel(f, text=f"{dl} / {tot} vidéos", font=ctk.CTkFont(weight="bold"), width=90)
+            lbl_stats.grid(row=0, column=3, padx=15)
+            
+            # Col 4: Status
+            status = data.get('status', 'En attente')
+            lbl_status = ctk.CTkLabel(f, text=status, text_color="gray", width=130, anchor="w")
+            lbl_status.grid(row=0, column=4, padx=10)
+            
+            # Col 5: Delete
+            ctk.CTkButton(f, text="X", width=30, fg_color="#D13438", hover_color="#A80000", 
+                          command=lambda idx=i: self.remove_tracking(idx)).grid(row=0, column=5, padx=10)
+                          
+            # Sauvegarde des références UI pour mise à jour en temps réel
+            self.tracking_ui_elements[data['url']] = {
+                'lbl_stats': lbl_stats,
+                'lbl_status': lbl_status,
+                'data_ref': data
+            }
+
+    # --- UI UPDATE HOOK ---
+    def auto_stats_hook(self, url, info):
+        # Cette fonction est appelée par YTDLLogger depuis le thread de fond
+        if url in self.tracking_ui_elements:
+            ui = self.tracking_ui_elements[url]
+            data = ui['data_ref']
+            
+            status = info.get('status', data.get('status'))
+            tot = info.get('total', data.get('stats_total'))
+            dl = info.get('downloaded', data.get('stats_downloaded'))
+            
+            data['status'] = status
+            if tot != 0: data['stats_total'] = tot
+            data['stats_downloaded'] = dl
+            
+            # Mise à jour de l'UI (doit être fait via after)
+            self.after(0, lambda u=url, t=tot, d=dl, s=status: self._update_ui_row(u, t, d, s))
+
+    def _update_ui_row(self, url, tot, dl, status):
+        if url in self.tracking_ui_elements:
+            ui = self.tracking_ui_elements[url]
+            if tot != 0:
+                ui['lbl_stats'].configure(text=f"{dl} / {tot} vidéos")
+            ui['lbl_status'].configure(text=status)
+            if "Téléchargement terminé" in status or "En attente" in status:
+                self.save_tracking()
 
     # --- BACKGROUND WORKER ---
     def force_check(self):
-        self.auto_status_label.configure(text="Vérification forcée en cours...", text_color="blue")
         threading.Thread(target=self.run_checks, args=(True,), daemon=True).start()
 
     def background_worker(self):
         while self.is_running:
             self.run_checks()
-            time.sleep(60) # Vérifier chaque minute si une chaîne a dépassé son intervalle
+            time.sleep(60)
 
     def run_checks(self, force=False):
         now = time.time()
@@ -310,33 +349,24 @@ class VideoDownloaderApp(ctk.CTk):
             interval_seconds = data['interval'] * 3600
             if force or (now - data.get('last_checked', 0) > interval_seconds):
                 try:
-                    # Met à jour le status UI
-                    self.after(0, lambda u=data['url']: self.auto_status_label.configure(text=f"Vérification: {u[:30]}...", text_color="black"))
-                    
-                    download_channel(data['url'], self.download_path, "Meilleure", data['date_after'])
-                    
-                    # Mise à jour date check
+                    self.auto_stats_hook(data['url'], {'status': '🔍 Initialisation...'})
+                    download_channel(data['url'], self.download_path, "Meilleure", data['date_after'], stats_hook=self.auto_stats_hook)
                     data['last_checked'] = time.time()
-                    self.save_tracking()
+                    self.auto_stats_hook(data['url'], {'status': '😴 En attente'})
                 except Exception as e:
                     print(f"Erreur tracking {data['url']}: {e}")
-                    
-        self.after(0, lambda: self.auto_status_label.configure(text="En attente (Arrière-plan)...", text_color="gray"))
+                    self.auto_stats_hook(data['url'], {'status': 'Erreur'})
 
     # --- MINIMIZE TO TRAY ---
     def hide_window(self):
-        # Si pystray n'est pas dispo, on quitte simplement
         if not pystray:
             self.is_running = False
             self.quit()
             return
             
-        self.withdraw() # Cache la fenêtre
+        self.withdraw()
         image = Image.open("icon_download.png")
-        menu = pystray.Menu(
-            pystray.MenuItem('Ouvrir Video Pro', self.show_window),
-            pystray.MenuItem('Quitter', self.quit_window)
-        )
+        menu = pystray.Menu(pystray.MenuItem('Ouvrir Video Pro', self.show_window), pystray.MenuItem('Quitter', self.quit_window))
         self.tray_icon = pystray.Icon("name", image, "Video Downloader Pro", menu)
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
@@ -374,13 +404,12 @@ class VideoDownloaderApp(ctk.CTk):
     def progress_hook(self, d):
         if d['status'] == 'downloading':
             try:
-                total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate')
-                downloaded_bytes = d.get('downloaded_bytes', 0)
-                if total_bytes:
-                    percent = downloaded_bytes / total_bytes
-                    self.progress_bar.set(percent)
-                    self.status_label.configure(text=f"Téléchargement en cours... {percent*100:.1f}%")
-            except Exception: pass
+                total = d.get('total_bytes') or d.get('total_bytes_estimate')
+                dl = d.get('downloaded_bytes', 0)
+                if total:
+                    self.progress_bar.set(dl / total)
+                    self.status_label.configure(text=f"Téléchargement en cours... {(dl/total)*100:.1f}%")
+            except: pass
         elif d['status'] == 'finished':
             self.progress_bar.set(1.0)
             self.status_label.configure(text="Téléchargement terminé avec succès ! 🎉", text_color="#107C10")

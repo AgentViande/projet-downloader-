@@ -1,12 +1,39 @@
 import yt_dlp
 import os
+import re
+
+class YTDLLogger:
+    def __init__(self, stats_hook, url):
+        self.stats_hook = stats_hook
+        self.url = url
+        self.total = 0
+        self.downloaded_count = 0
+        
+    def debug(self, msg):
+        if "Downloading " in msg and "items of " in msg:
+            match = re.search(r'Downloading (\d+) items', msg)
+            if match:
+                self.total = int(match.group(1))
+                self.update("Vérification...")
+        elif "has already been recorded in the archive" in msg:
+            self.downloaded_count += 1
+            self.update("Vérification...")
+            
+    def update(self, status):
+        if self.stats_hook:
+            self.stats_hook(self.url, {
+                'status': status,
+                'total': self.total,
+                'downloaded': self.downloaded_count
+            })
+            
+    def warning(self, msg):
+        pass
+        
+    def error(self, msg):
+        pass
 
 def download_video(url, output_path, quality_str, progress_hook=None):
-    """
-    Télécharge une vidéo depuis l'URL donnée de manière 100% Plug-and-Play.
-    Utilise yt-dlp par défaut (TikTok, etc.), avec repli sur pytubefix pour YouTube si bloqué.
-    """
-    
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
         'noplaylist': True,
@@ -77,22 +104,19 @@ def download_video(url, output_path, quality_str, progress_hook=None):
         else:
             raise e
 
-def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None):
-    """
-    Télécharge une chaîne entière, avec historique (archive.txt) pour ignorer les vidéos déjà téléchargées.
-    """
-    
-    # On crée un sous-dossier par chaîne automatiquement
+def download_channel(url, output_path, quality_str, date_after=None, progress_hook=None, stats_hook=None):
     ydl_opts = {
         'outtmpl': os.path.join(output_path, '%(uploader)s', '%(title)s.%(ext)s'),
-        'noplaylist': False, # Autoriser le téléchargement de chaîne
+        'noplaylist': False,
         'extractor_args': {'youtube': ['player_client=ios,android,web']},
-        'download_archive': os.path.join(output_path, 'archive.txt'), # Fichier de mémorisation !
-        'ignoreerrors': True, # Ignorer si une vidéo crashe et passer à la suivante
+        'download_archive': os.path.join(output_path, 'archive.txt'),
+        'ignoreerrors': True,
     }
     
+    logger = YTDLLogger(stats_hook, url)
+    ydl_opts['logger'] = logger
+    
     if date_after:
-        # yt-dlp attend le format YYYYMMDD
         clean_date = date_after.replace("-", "").replace("/", "")
         ydl_opts['daterange'] = yt_dlp.utils.DateRange(start=clean_date)
         
@@ -102,8 +126,17 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
     except ImportError:
         pass
         
-    if progress_hook:
-        ydl_opts['progress_hooks'] = [progress_hook]
+    def internal_hook(d):
+        if d['status'] == 'finished':
+            logger.downloaded_count += 1
+            logger.update("Téléchargement en cours...")
+        elif d['status'] == 'downloading':
+            logger.update(f"Téléchargement... {d.get('_percent_str', '').strip()}")
+            
+        if progress_hook:
+            progress_hook(d)
+
+    ydl_opts['progress_hooks'] = [internal_hook]
 
     if quality_str == "Audio seulement":
         ydl_opts['format'] = 'bestaudio/best'
@@ -123,6 +156,9 @@ def download_channel(url, output_path, quality_str, date_after=None, progress_ho
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
+        
+    # Fin
+    logger.update("En attente")
 
 if __name__ == "__main__":
     pass
